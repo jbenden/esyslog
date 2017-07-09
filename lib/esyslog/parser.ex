@@ -62,6 +62,7 @@ defmodule Syslog.Parser do
   end
 
   @spec decode_facility(integer) :: atom
+  # credo:disable-for-next-line
   defp decode_facility(facility) do
     case facility do
       0  -> :kern
@@ -93,6 +94,7 @@ defmodule Syslog.Parser do
   end
 
   @spec decode_severity(integer) :: atom
+  # credo:disable-for-next-line
   defp decode_severity(severity) do
     case severity do
       0 -> :emerg
@@ -109,17 +111,17 @@ defmodule Syslog.Parser do
 
   @spec parse_priority(list(binary()), map()) :: {nonempty_maybe_improper_list(), map()}
   defp parse_priority([h | t], state) do
-    cond do
-      h == ?< -> parse_priority_1(t, state)
-      true -> raise ArgumentError, "invalid priority opening character"
+    case h do
+      ?< -> parse_priority_1(t, state)
+      _  -> raise ArgumentError, "invalid priority opening character"
     end
   end
 
   @spec parse_priority_1(list(binary()), map()) :: {nonempty_maybe_improper_list(), map()}
   defp parse_priority_1([h | t], %{priority: p} = state) do
-    cond do
-      h >= ?0 and h <= ?9 -> parse_priority_1(t, %{state | priority: p ++ [h]})
-      h == ?> -> {t, state}  # parse_datetime(state, t) # next state
+    case h do
+      x when x in ?0..?9 -> parse_priority_1(t, %{state | priority: p ++ [x]})
+      ?>                 -> {t, state}
     end
   end
 
@@ -135,10 +137,10 @@ defmodule Syslog.Parser do
 
         year = NaiveDateTime.utc_now().year
         month = Enum.find_index(@months, fn(m) -> m == Enum.at(elements, 1) end) + 1
-        {day, _} = Enum.at(elements, 2) |> Integer.parse
-        {hour, _} = Enum.at(elements, 3) |> Integer.parse
-        {minutes, _} = Enum.at(elements, 4) |> Integer.parse
-        {seconds, _} = Enum.at(elements, 5) |> Integer.parse
+        {day, _} = elements |> Enum.at(2) |> Integer.parse
+        {hour, _} = elements |> Enum.at(3) |> Integer.parse
+        {minutes, _} = elements |> Enum.at(4) |> Integer.parse
+        {seconds, _} = elements |> Enum.at(5) |> Integer.parse
         {microseconds, _} =
           (Enum.at(elements, 6) || "")
           |> String.pad_trailing(6, "0")
@@ -155,8 +157,9 @@ defmodule Syslog.Parser do
 
   @spec parse_host_and_tag(binary, map) :: {[binary], map()}
   defp parse_host_and_tag(chars, state) do
-    elements = to_string(chars)
-    |> String.split
+    elements = chars
+      |> to_string
+      |> String.split
 
     # first element could be a hostname
     [h | t] = elements
@@ -191,7 +194,7 @@ defmodule Syslog.Parser do
       Enum.reduce(elements, state, fn(s, state) ->
         k = Enum.at(s, 2)
         v = Enum.at(s, 3)
-        %{state | kvps: Map.put(state.kvps, k, v |> String.trim("\"")) }
+        %{state | kvps: Map.put(state.kvps, k, v |> String.trim("\""))}
       end)
 
     {Enum.join(chars, " "), state}
